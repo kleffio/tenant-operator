@@ -1,0 +1,45 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - kleff.kleff.io
+  resources:
+  - namespaces
+  - services
+  - tenants
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kleff.kleff.io
+  resources:
+  - tenants/events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kleff.kleff.io
+  resources:
+  - tenants/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kleff.kleff.io
+  resources:
+  - tenants/status
+  verbs:
+  - get
+  - patch
+  - update
