@@ -1,0 +1,10 @@
+name: Kleff Org Policies
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  org-policies:
+    uses: kleffio/.github/workflows/_org-policies.yml@main
