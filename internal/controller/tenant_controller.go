@@ -15,7 +15,7 @@ import (
 	kleffv1 "kleff.io/api/v1"
 )
 
-const finalizerName = "kleff.io/finalizer"
+const finalizerName = "kleff.io/namespace-finalizer"
 
 // TenantReconciler reconciles a Tenant object
 type TenantReconciler struct {
@@ -32,6 +32,8 @@ type TenantReconciler struct {
 // +kubebuilder:rbac:groups=kleff.kleff.io,resources=tenants/events,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=kleff.kleff.io,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kleff.kleff.io,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kleff.kleff.io,resources=resourcequotas,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kleff.kleff.io,resources=limitranges,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -134,7 +136,9 @@ func generateDesiredNamespace(tenant *kleffv1.Tenant, namespaceName string) *cor
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
 			Labels: map[string]string{
-				"istio-injection": "enabled",
+				"istio-injection":          "enabled",
+				"kleff.io/tenant-username": tenant.Spec.Username,
+				"kleff.io/tenant-plan":     tenant.Spec.Plan,
 			},
 		},
 	}
