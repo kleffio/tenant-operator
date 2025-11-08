@@ -28,8 +28,9 @@ type TenantSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Plan   string `json:"plan"`
-	UserId string `json:"userId"`
+	Plan     string `json:"plan"`
+	UserId   string `json:"userId"`
+	Username string `json:"username"`
 }
 
 // TenantStatus defines the observed state of Tenant.

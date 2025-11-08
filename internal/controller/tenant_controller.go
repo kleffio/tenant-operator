@@ -1,24 +1,7 @@
-/*
-Copyright 2025.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,10 +9,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kleffv1 "kleff.io/api/v1"
 )
+
+const finalizerName = "kleff.io/finalizer"
 
 // TenantReconciler reconciles a Tenant object
 type TenantReconciler struct {
@@ -63,13 +49,32 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	tenant := &kleffv1.Tenant{}
 	if err := r.Get(ctx, req.NamespacedName, tenant); err != nil {
-		// If the Tenant resource is not found, it might have been deleted.
-		// We don't need to reconcile anymore, so we can ignore this error.
-		// For any other error, we return it to retry the reconciliation.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	log.Info("Reconciliating Tenant", "userId", tenant.Spec.UserId, "plan", tenant.Spec.Plan)
+
+	if !tenant.ObjectMeta.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(tenant, finalizerName) {
+			log.Info("Deleting Namespace for Tenant")
+			if err := r.deleteNamespace(ctx, tenant); err != nil {
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(tenant, finalizerName)
+			if err := r.Update(ctx, tenant); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Add finalizer if it doesn't exist
+	if !controllerutil.ContainsFinalizer(tenant, finalizerName) {
+		controllerutil.AddFinalizer(tenant, finalizerName)
+		if err := r.Update(ctx, tenant); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	namespaceReady := false
 
@@ -103,22 +108,6 @@ func (r *TenantReconciler) addNamespaceIfNotExists(ctx context.Context, tenant *
 
 	namespace := &corev1.Namespace{}
 	namespaceName := tenant.Spec.UserId
-	print(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	fmt.Println(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
-	log.Info(tenant.Spec.UserId)
 
 	err := r.Get(ctx, client.ObjectKey{Name: namespaceName}, namespace)
 
@@ -129,8 +118,7 @@ func (r *TenantReconciler) addNamespaceIfNotExists(ctx context.Context, tenant *
 	}
 
 	// tenant namespace doesnt exist, create it
-	desiredNamespace := generateDesiredNamespace(namespaceName)
-	// here
+	desiredNamespace := generateDesiredNamespace(tenant, namespaceName)
 
 	if err := r.Create(ctx, desiredNamespace); err != nil {
 		return err
@@ -141,10 +129,13 @@ func (r *TenantReconciler) addNamespaceIfNotExists(ctx context.Context, tenant *
 	return nil
 }
 
-func generateDesiredNamespace(namespaceName string) *corev1.Namespace {
+func generateDesiredNamespace(tenant *kleffv1.Tenant, namespaceName string) *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespaceName,
+			Labels: map[string]string{
+				"istio-injection": "enabled",
+			},
 		},
 	}
 }
@@ -168,4 +159,13 @@ func addCondition(status *kleffv1.TenantStatus, condType string, statusType meta
 		LastTransitionTime: metav1.Now(),
 	}
 	status.Conditions = append(status.Conditions, condition)
+}
+
+func (r *TenantReconciler) deleteNamespace(ctx context.Context, tenant *kleffv1.Tenant) error {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tenant.Spec.UserId,
+		},
+	}
+	return client.IgnoreNotFound(r.Delete(ctx, namespace))
 }

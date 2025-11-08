@@ -43,9 +43,12 @@ spec:
                 type: string
               userId:
                 type: string
+              username:
+                type: string
             required:
             - plan
             - userId
+            - username
             type: object
           status:
             description: TenantStatus defines the observed state of Tenant.
